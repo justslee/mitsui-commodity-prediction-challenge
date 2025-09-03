@@ -62,12 +62,12 @@
 ## Phase 3: Baseline Models (Week 3)
 
 ### Step 3.1: Simple Baselines
-- [ ] Create `src/models/baselines.py`
-- [ ] Implement naive forecasts (last value, mean reversion)
-- [ ] Add linear regression with basic features
-- [ ] Implement Ridge/Lasso regression for feature selection
-- [ ] Create target-specific simple models
-- [ ] Document baseline performance metrics
+- [x] Create `src/models/baselines.py`
+- [x] Implement naive forecasts (last value, mean reversion)
+- [x] Add linear regression with basic features
+- [x] Implement Ridge/Lasso regression for feature selection
+- [x] Create target-specific simple models
+- [x] Document baseline performance metrics
 
 ### Step 3.2: Tree-Based Models
 - [ ] Create `src/models/tree_models.py`
@@ -78,12 +78,12 @@
 - [ ] Add CatBoost implementation
 
 ### Step 3.3: Validation Framework
-- [ ] Create `src/utils/validation.py`
-- [ ] Implement time series cross-validation
-- [ ] Add target-specific evaluation metrics
-- [ ] Implement purged cross-validation to prevent leakage
-- [ ] Create performance tracking and logging system
-- [ ] Add walk-forward analysis
+- [x] Create `src/utils/validation.py`
+- [x] Implement time series cross-validation
+- [x] Add target-specific evaluation metrics
+- [x] Implement purged cross-validation to prevent leakage
+- [x] Create performance tracking and logging system
+- [x] Add walk-forward analysis
 
 ## Phase 4: Advanced Models (Week 4)
 
