@@ -70,12 +70,12 @@
 - [x] Document baseline performance metrics
 
 ### Step 3.2: Tree-Based Models
-- [ ] Create `src/models/tree_models.py`
-- [ ] Implement XGBoost individual target models
-- [ ] Add LightGBM for faster iteration
-- [ ] Implement Random Forest ensemble
-- [ ] Create target-specific hyperparameter tuning
-- [ ] Add CatBoost implementation
+- [x] Create `src/models/tree_models.py`
+- [x] Implement XGBoost individual target models
+- [x] Add LightGBM for faster iteration
+- [x] Implement Random Forest ensemble
+- [x] Create target-specific hyperparameter tuning
+- [x] Add CatBoost implementation
 
 ### Step 3.3: Validation Framework
 - [x] Create `src/utils/validation.py`
