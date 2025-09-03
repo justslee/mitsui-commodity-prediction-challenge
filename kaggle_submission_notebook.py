@@ -124,12 +124,50 @@ class MitsuiInferenceServer(kaggle_evaluation.core.templates.InferenceServer):
         return mitsui_gateway.MitsuiGateway(data_paths)
 
 
+def generate_predictions():
+    """Generate predictions and save as submission.parquet"""
+    model = MitsuiSubmissionModel()
+    model.train_on_kaggle_data()
+    
+    # Load test data
+    test_df = pl.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/test.csv')
+    label_lags_1 = pl.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/lagged_test_labels/test_labels_lag_1.csv')
+    label_lags_2 = pl.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/lagged_test_labels/test_labels_lag_2.csv')
+    label_lags_3 = pl.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/lagged_test_labels/test_labels_lag_3.csv')
+    label_lags_4 = pl.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/lagged_test_labels/test_labels_lag_4.csv')
+    
+    date_ids = test_df['date_id'].unique().to_list()
+    all_predictions = []
+    
+    for date_id in date_ids:
+        test_batch = test_df.filter(pl.col('date_id') == date_id)
+        label_lags_1_batch = label_lags_1.filter(pl.col('date_id') == date_id)
+        label_lags_2_batch = label_lags_2.filter(pl.col('date_id') == date_id)
+        label_lags_3_batch = label_lags_3.filter(pl.col('date_id') == date_id)
+        label_lags_4_batch = label_lags_4.filter(pl.col('date_id') == date_id)
+        
+        prediction = model.predict_single_date(
+            test_batch, label_lags_1_batch, label_lags_2_batch,
+            label_lags_3_batch, label_lags_4_batch
+        )
+        
+        prediction['date_id'] = date_id
+        all_predictions.append(prediction)
+    
+    submission_df = pd.concat(all_predictions, ignore_index=True)
+    cols = ['date_id'] + [col for col in submission_df.columns if col != 'date_id']
+    submission_df = submission_df[cols]
+    
+    submission_df.to_parquet('submission.parquet', index=False)
+    print(f"Generated submission.parquet with shape {submission_df.shape}")
+
+
 def main():
     if os.getenv('KAGGLE_IS_COMPETITION_RERUN'):
         server = MitsuiInferenceServer()
         server.serve()
     else:
-        print("Upload this notebook to Kaggle for submission.")
+        generate_predictions()
 
 
 if __name__ == "__main__":
