@@ -192,6 +192,7 @@ def load_and_train_ensemble_models():
     ridge_count = 0
     for i, target_col in enumerate(target_columns):
         if (i + 1) % 25 == 0:
+            print(f"Progress: {i + 1}/{len(target_columns)} targets")
         if target_col not in target_df.columns:
             continue
         y = target_df[target_col]
