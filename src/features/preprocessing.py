@@ -13,9 +13,6 @@ from sklearn.impute import SimpleImputer
 import logging
 from pathlib import Path
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class MissingDataHandler:
@@ -28,18 +25,6 @@ class MissingDataHandler:
         self.strategy_used = {}
     
     def fit(self, df: pd.DataFrame, strategy: str = 'auto') -> 'MissingDataHandler':
-        """
-        Fit missing data handling strategy.
-        
-        Args:
-            df: DataFrame with missing values
-            strategy: 'forward_fill', 'interpolate', 'mean', 'median', 'auto'
-        
-        Returns:
-            Self for method chaining
-        """
-        logger.info(f"Fitting missing data handler with strategy: {strategy}")
-        
         for column in df.columns:
             if df[column].isnull().any():
                 missing_pct = df[column].isnull().mean()
@@ -100,34 +85,19 @@ class MissingDataHandler:
         return df_processed
     
     def fit_transform(self, df: pd.DataFrame, strategy: str = 'auto') -> pd.DataFrame:
-        """Fit and transform in one step."""
         return self.fit(df, strategy).transform(df)
     
     def get_strategy_summary(self) -> Dict[str, str]:
-        """Get summary of strategies used for each feature."""
+        
         return self.strategy_used.copy()
 
 
 class TimeSeriesAlignment:
-    """
-    Handles time series alignment and date processing.
-    """
-    
     def __init__(self):
         self.date_range = None
         self.missing_dates = None
     
     def analyze_time_series(self, df: pd.DataFrame, date_col: str = 'date_id') -> Dict[str, Any]:
-        """
-        Analyze time series characteristics.
-        
-        Args:
-            df: DataFrame with time series data
-            date_col: Name of date column
-            
-        Returns:
-            Dictionary with time series analysis
-        """
         analysis = {
             'total_periods': len(df),
             'date_range': (df[date_col].min(), df[date_col].max()),
@@ -152,16 +122,6 @@ class TimeSeriesAlignment:
         return analysis
     
     def align_time_series(self, dfs: List[pd.DataFrame], date_col: str = 'date_id') -> List[pd.DataFrame]:
-        """
-        Align multiple time series DataFrames to common date range.
-        
-        Args:
-            dfs: List of DataFrames to align
-            date_col: Name of date column
-            
-        Returns:
-            List of aligned DataFrames
-        """
         if not dfs:
             return []
         
@@ -169,7 +129,6 @@ class TimeSeriesAlignment:
         min_date = max(df[date_col].min() for df in dfs)
         max_date = min(df[date_col].max() for df in dfs)
         
-        logger.info(f"Aligning {len(dfs)} DataFrames to date range: {min_date} - {max_date}")
         
         # Filter all DataFrames to common range
         aligned_dfs = []
@@ -207,17 +166,6 @@ class FeatureScaler:
             raise ValueError(f"Unknown scaling method: {method}")
     
     def fit(self, df: pd.DataFrame, feature_categories: Dict[str, List[str]] = None) -> 'FeatureScaler':
-        """
-        Fit scalers to data.
-        
-        Args:
-            df: DataFrame to fit scalers on
-            feature_categories: Optional feature categories for category-specific scaling
-            
-        Returns:
-            Self for method chaining
-        """
-        logger.info(f"Fitting {self.method} scalers")
         
         if feature_categories:
             # Scale each category separately
@@ -238,15 +186,6 @@ class FeatureScaler:
         return self
     
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply scaling transformations.
-        
-        Args:
-            df: DataFrame to transform
-            
-        Returns:
-            Scaled DataFrame
-        """
         df_scaled = df.copy()
         
         if self.feature_categories:
@@ -267,7 +206,7 @@ class FeatureScaler:
         return df_scaled
     
     def fit_transform(self, df: pd.DataFrame, feature_categories: Dict[str, List[str]] = None) -> pd.DataFrame:
-        """Fit and transform in one step."""
+        
         return self.fit(df, feature_categories).transform(df)
 
 
@@ -280,14 +219,7 @@ class DataPreprocessor:
                  missing_strategy: str = 'auto',
                  scaling_method: str = 'robust',
                  handle_outliers: bool = True):
-        """
-        Initialize preprocessing pipeline.
-        
-        Args:
-            missing_strategy: Strategy for handling missing data
-            scaling_method: Method for feature scaling
-            handle_outliers: Whether to handle outliers
-        """
+
         self.missing_strategy = missing_strategy
         self.scaling_method = scaling_method
         self.handle_outliers = handle_outliers
@@ -305,17 +237,7 @@ class DataPreprocessor:
     def analyze_data(self, train_df: pd.DataFrame, 
                     target_df: pd.DataFrame = None,
                     feature_categories: Dict[str, List[str]] = None) -> Dict[str, Any]:
-        """
-        Comprehensive data analysis before preprocessing.
-        
-        Args:
-            train_df: Training features
-            target_df: Training targets (optional)
-            feature_categories: Feature categories
-            
-        Returns:
-            Analysis results
-        """
+
         analysis = {
             'train_shape': train_df.shape,
             'missing_summary': train_df.isnull().sum().to_dict(),
@@ -346,17 +268,7 @@ class DataPreprocessor:
     
     def detect_outliers(self, df: pd.DataFrame, method: str = 'iqr', 
                        factor: float = 3.0) -> Dict[str, Tuple[float, float]]:
-        """
-        Detect outliers and calculate bounds.
-        
-        Args:
-            df: DataFrame to analyze
-            method: 'iqr' or 'zscore'
-            factor: Multiplier for outlier detection
-            
-        Returns:
-            Dictionary of outlier bounds per feature
-        """
+
         bounds = {}
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         
@@ -383,17 +295,7 @@ class DataPreprocessor:
     
     def handle_outliers_data(self, df: pd.DataFrame, bounds: Dict[str, Tuple[float, float]] = None,
                             method: str = 'clip') -> pd.DataFrame:
-        """
-        Handle outliers in the data.
-        
-        Args:
-            df: DataFrame with potential outliers
-            bounds: Outlier bounds (if None, will detect)
-            method: 'clip', 'remove', or 'winsorize'
-            
-        Returns:
-            DataFrame with outliers handled
-        """
+
         if bounds is None:
             bounds = self.outlier_bounds
         
@@ -415,18 +317,6 @@ class DataPreprocessor:
     def fit(self, train_df: pd.DataFrame, 
            target_df: pd.DataFrame = None,
            feature_categories: Dict[str, List[str]] = None) -> 'DataPreprocessor':
-        """
-        Fit preprocessing pipeline on training data.
-        
-        Args:
-            train_df: Training features
-            target_df: Training targets (optional)
-            feature_categories: Feature categories for category-specific processing
-            
-        Returns:
-            Self for method chaining
-        """
-        logger.info("Fitting preprocessing pipeline")
         
         self.feature_categories = feature_categories
         
@@ -445,20 +335,10 @@ class DataPreprocessor:
         self.scaler.fit(train_df_clean, feature_categories)
         
         self.is_fitted = True
-        logger.info("Preprocessing pipeline fitted successfully")
         
         return self
     
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply preprocessing transformations.
-        
-        Args:
-            df: DataFrame to transform
-            
-        Returns:
-            Preprocessed DataFrame
-        """
         if not self.is_fitted:
             raise ValueError("Preprocessor must be fitted before transform")
         
@@ -475,16 +355,10 @@ class DataPreprocessor:
     def fit_transform(self, train_df: pd.DataFrame, 
                      target_df: pd.DataFrame = None,
                      feature_categories: Dict[str, List[str]] = None) -> pd.DataFrame:
-        """Fit and transform in one step."""
+        
         return self.fit(train_df, target_df, feature_categories).transform(train_df)
     
     def get_preprocessing_summary(self) -> Dict[str, Any]:
-        """
-        Get summary of preprocessing steps applied.
-        
-        Returns:
-            Dictionary with preprocessing summary
-        """
         if not self.is_fitted:
             return {"status": "not_fitted"}
         
@@ -507,17 +381,6 @@ class DataPreprocessor:
 def create_preprocessing_pipeline(missing_strategy: str = 'auto',
                                 scaling_method: str = 'robust',
                                 handle_outliers: bool = True) -> DataPreprocessor:
-    """
-    Factory function to create preprocessing pipeline.
-    
-    Args:
-        missing_strategy: Strategy for handling missing data
-        scaling_method: Method for feature scaling  
-        handle_outliers: Whether to handle outliers
-        
-    Returns:
-        Configured DataPreprocessor instance
-    """
     return DataPreprocessor(
         missing_strategy=missing_strategy,
         scaling_method=scaling_method,
