@@ -126,7 +126,6 @@ def load_and_train_models():
     xgb_targets = 0
     ridge_targets = 0
     for i, target_col in enumerate(target_columns):
-        if (i + 1) % 50 == 0:
         if target_col not in target_df.columns:
             continue
         y = target_df[target_col]

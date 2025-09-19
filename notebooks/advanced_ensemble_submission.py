@@ -4,6 +4,8 @@ Uses multiple model types and ensemble methods for maximum performance
 """
 
 import os
+from pathlib import Path
+import sys
 
 import pandas as pd
 
@@ -28,8 +30,46 @@ ensemble_models = None
 feature_columns = None
 scalers = None
 
+# Allow importing project feature modules when running locally
+try:
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+    SRC_PATH = PROJECT_ROOT / 'src'
+    if SRC_PATH.exists():
+        sys.path.append(str(SRC_PATH))
+        from features.technical_indicators import create_technical_features  # type: ignore
+        from features.time_series import create_time_series_features  # type: ignore
+        from features.cross_market import create_cross_market_features  # type: ignore
+        from features.global_factors import create_enhanced_features  # type: ignore
+        from features.feature_selection import select_best_features  # type: ignore
+        HAVE_ADVANCED_FEATURES = True
+    else:
+        HAVE_ADVANCED_FEATURES = False
+except Exception:
+    HAVE_ADVANCED_FEATURES = False
+
 def create_comprehensive_features(df: pd.DataFrame) -> pd.DataFrame:
     df_result = df.copy()
+    # Optionally enrich with advanced feature modules (kept lightweight by internal limits)
+    if HAVE_ADVANCED_FEATURES:
+        try:
+            # Derive simple feature categories from columns
+            cols = df_result.columns
+            feature_categories = {
+                'lme': [c for c in cols if isinstance(c, str) and c.startswith('LME_')],
+                'jpx': [c for c in cols if isinstance(c, str) and c.startswith('JPX_')],
+                'us_stock': [c for c in cols if isinstance(c, str) and c.startswith('US_Stock_')],
+                'fx': [c for c in cols if isinstance(c, str) and c.startswith('FX_')],
+            }
+            # Apply a small set of advanced features first
+            df_result = create_technical_features(df_result, feature_categories)
+            df_result = create_time_series_features(df_result, feature_categories)
+            # Cross-market interactions can add leakage risk if overly broad; keep minimal
+            df_result = create_cross_market_features(df_result, feature_categories)
+            # PCA/ICA factors to denoise; small components for speed
+            df_result = create_enhanced_features(df_result, n_pca_components=2, use_ica=False)
+        except Exception:
+            # If anything fails, continue with basic engineered features below
+            pass
     # Get price columns
     price_cols = []
     for col in df.columns:
@@ -107,6 +147,54 @@ def create_comprehensive_features(df: pd.DataFrame) -> pd.DataFrame:
         df_result['date_cos_quarterly'] = np.cos(2 * np.pi * df['date_id'] / 90)
     return df_result
 
+
+def append_train_label_lag_features(train_df: pd.DataFrame, target_df: pd.DataFrame, max_lag: int = 4) -> pd.DataFrame:
+    """Append lagged label features (from train_labels) to the training feature frame.
+
+    For each target column, we add target_{...}_lag_{k} for k in [1..max_lag].
+    """
+    if target_df is None or train_df is None:
+        return train_df
+    result_df = train_df.copy()
+    label_cols = [c for c in target_df.columns if c.startswith('target_')]
+    if not label_cols:
+        return result_df
+    for lag in range(1, max_lag + 1):
+        lagged = target_df[label_cols].shift(lag)
+        lagged.columns = [f"{c}_lag_{lag}" for c in label_cols]
+        result_df = pd.concat([result_df, lagged], axis=1)
+    return result_df
+
+
+def add_label_lag_features_from_batches(df: pd.DataFrame,
+                                        lag1: pl.DataFrame,
+                                        lag2: pl.DataFrame,
+                                        lag3: pl.DataFrame,
+                                        lag4: pl.DataFrame) -> pd.DataFrame:
+    """For inference, add provided lagged label values as features on the single-row test frame.
+
+    Creates columns named target_{...}_lag_{k} to match training-time feature names.
+    """
+    result_df = df.copy()
+    lag_batches = [(1, lag1), (2, lag2), (3, lag3), (4, lag4)]
+    for lag_num, pl_df in lag_batches:
+        try:
+            pd_df = pl_df.to_pandas()
+        except Exception:
+            continue
+        # drop meta columns if present
+        for drop_col in ['date_id', 'label_date_id']:
+            if drop_col in pd_df.columns:
+                pd_df = pd_df.drop(columns=[drop_col])
+        # single-row expected
+        if len(pd_df) == 0:
+            continue
+        for col in pd_df.columns:
+            if not str(col).startswith('target_'):
+                continue
+            result_df[f"{col}_lag_{lag_num}"] = pd_df.iloc[0][col]
+    return result_df
+
 def create_ensemble_model(X_valid: pd.DataFrame, y_valid: pd.Series, target_name: str):
     n_samples = len(y_valid)
     if n_samples >= 1000:
@@ -158,30 +246,32 @@ def create_ensemble_model(X_valid: pd.DataFrame, y_valid: pd.Series, target_name
 def load_and_train_ensemble_models():
     global ensemble_models, feature_columns, scalers
     # Load data
-    train_df = pd.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/train.csv')
-    target_df = pd.read_csv('/kaggle/input/mitsui-commodity-prediction-challenge/train_labels.csv')
+    data_dir = os.getenv('LOCAL_DATA_DIR', '/kaggle/input/mitsui-commodity-prediction-challenge')
+    train_df = pd.read_csv(os.path.join(data_dir, 'train.csv'))
+    target_df = pd.read_csv(os.path.join(data_dir, 'train_labels.csv'))
+    # Append lagged label features before creating engineered features
+    train_df = append_train_label_lag_features(train_df, target_df, max_lag=4)
     # Create comprehensive features
     train_df = create_comprehensive_features(train_df)
-    # Feature selection
+    # Global prefiltering
     numeric_cols = train_df.select_dtypes(include=[np.number]).columns
-    feature_cols = [col for col in numeric_cols if col != 'date_id']
-    # Remove features with too many NaNs
-    X_temp = train_df[feature_cols]
+    base_feature_cols = [col for col in numeric_cols if col != 'date_id']
+    # Remove features with too many NaNs (stricter)
+    X_temp = train_df[base_feature_cols]
     nan_ratio = X_temp.isnull().sum() / len(X_temp)
-    feature_cols = [col for col in feature_cols if nan_ratio[col] < 0.5]
+    base_feature_cols = [col for col in base_feature_cols if nan_ratio[col] < 0.4]
     # Remove highly correlated features
-    X_temp = train_df[feature_cols].fillna(0)
+    X_temp = train_df[base_feature_cols].fillna(0)
     correlation_matrix = X_temp.corr().abs()
     upper_tri = correlation_matrix.where(
         np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
     )
-    high_corr_features = [column for column in upper_tri.columns if any(upper_tri[column] > 0.95)]
-    feature_cols = [col for col in feature_cols if col not in high_corr_features]
-    X = train_df[feature_cols].fillna(0)
-    feature_columns = X.columns.tolist()
-    # Scale features
+    high_corr_features = [column for column in upper_tri.columns if any(upper_tri[column] > 0.90)]
+    base_feature_cols = [col for col in base_feature_cols if col not in high_corr_features]
+    X_full = train_df[base_feature_cols].fillna(0)
+    # Scale using global scaler so we can subset per-target later
     scaler = StandardScaler()
-    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns, index=X.index)
+    X_full_scaled = pd.DataFrame(scaler.fit_transform(X_full), columns=X_full.columns, index=X_full.index)
     scalers = {'feature_scaler': scaler}
     # Train models
     target_columns = [col for col in target_df.columns if col.startswith('target_')]
@@ -200,10 +290,26 @@ def load_and_train_ensemble_models():
         if valid_mask.sum() < 10:
             trained_models[target_col] = {'type': 'mean', 'value': 0.0}
             continue
-        X_valid = X_scaled[valid_mask]
+        # Per-target lightweight feature selection (Spearman)
+        try:
+            if HAVE_ADVANCED_FEATURES:
+                selected_features, _ = select_best_features(
+                    X_full, y, max_features=150, selection_method='spearman'
+                )
+                # Ensure selected features are in our scaled matrix
+                selected_features = [c for c in selected_features if c in X_full_scaled.columns]
+                if len(selected_features) < 20:
+                    selected_features = X_full_scaled.columns.tolist()[:200]
+            else:
+                selected_features = X_full_scaled.columns.tolist()[:200]
+        except Exception:
+            selected_features = X_full_scaled.columns.tolist()[:200]
+
+        X_valid = X_full_scaled.loc[valid_mask, selected_features]
         y_valid = y[valid_mask]
         try:
             model_info = create_ensemble_model(X_valid, y_valid, target_col)
+            model_info['feature_columns'] = selected_features
             trained_models[target_col] = model_info
             # Count model types
             if model_info['type'] == 'ensemble':
@@ -232,29 +338,40 @@ def predict(
         load_and_train_ensemble_models()
     # Convert and process features
     test_df = test.to_pandas()
+    # Add provided lagged label features to align with training-time features
+    test_df = add_label_lag_features_from_batches(
+        test_df,
+        label_lags_1_batch,
+        label_lags_2_batch,
+        label_lags_3_batch,
+        label_lags_4_batch,
+    )
+    # Then add engineered features on top
     test_df = create_comprehensive_features(test_df)
-    # Prepare features
+    # Prepare global scaled features; we'll subset per target
+    all_model_features = set()
+    for mi in (ensemble_models or {}).values():
+        if isinstance(mi, dict) and 'feature_columns' in mi:
+            for c in mi['feature_columns']:
+                all_model_features.add(c)
+    if not all_model_features:
+        all_model_features = set(feature_columns or [])
+
     try:
-        X = test_df[feature_columns].fillna(0)
-        X_scaled = pd.DataFrame(
-            scalers['feature_scaler'].transform(X),
-            columns=X.columns,
-            index=X.index
-        )
+        X_all = test_df[list(all_model_features)].fillna(0)
     except Exception:
-        # Fallback for missing features
-        available_cols = [col for col in feature_columns if col in test_df.columns]
-        X = test_df[available_cols].fillna(0) if available_cols else pd.DataFrame([[0] * len(feature_columns)])
-        # Pad missing columns
-        for col in feature_columns:
-            if col not in X.columns:
-                X[col] = 0
-        X = X[feature_columns]
-        X_scaled = pd.DataFrame(
-            scalers['feature_scaler'].transform(X),
-            columns=X.columns,
-            index=X.index
-        )
+        available_cols = [c for c in all_model_features if c in test_df.columns]
+        X_all = test_df[available_cols].fillna(0) if available_cols else pd.DataFrame([[0]])
+        for c in all_model_features:
+            if c not in X_all.columns:
+                X_all[c] = 0
+        X_all = X_all[list(all_model_features)]
+
+    X_all_scaled = pd.DataFrame(
+        scalers['feature_scaler'].transform(X_all.reindex(columns=scalers['feature_scaler'].feature_names_in_, fill_value=0)),
+        columns=scalers['feature_scaler'].feature_names_in_,
+        index=X_all.index
+    )
     # Get expected targets
     provided_label_lags = pl.concat(
         [label_lags_1_batch.drop(['date_id', 'label_date_id']),
@@ -271,7 +388,13 @@ def predict(
             try:
                 model_info = ensemble_models[target_col]
                 if model_info['type'] in ['ensemble', 'rf', 'xgb', 'ridge']:
-                    pred = model_info['model'].predict(X_scaled)
+                    cols = model_info.get('feature_columns', list(X_all_scaled.columns))
+                    # Ensure columns exist and order matches training
+                    cols_existing = [c for c in cols if c in X_all_scaled.columns]
+                    X_target = X_all_scaled[cols_existing]
+                    if X_target.shape[1] == 0:
+                        X_target = X_all_scaled
+                    pred = model_info['model'].predict(X_target)
                     predictions[target_col] = pred[0] if len(pred) > 0 else 0.0
                 else:
                     predictions[target_col] = model_info['value']
@@ -290,4 +413,8 @@ inference_server = kaggle_evaluation.mitsui_inference_server.MitsuiInferenceServ
 if os.getenv('KAGGLE_IS_COMPETITION_RERUN'):
     inference_server.serve()
 else:
-    inference_server.run_local_gateway(('/kaggle/input/mitsui-commodity-prediction-challenge/',))
+    local_dir = os.getenv('LOCAL_DATA_DIR')
+    if local_dir:
+        inference_server.run_local_gateway((local_dir,))
+    else:
+        inference_server.run_local_gateway(('/kaggle/input/mitsui-commodity-prediction-challenge/',))

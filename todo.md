@@ -136,6 +136,67 @@
 - [ ] Implement dynamic weighting based on market conditions
 - [ ] Add ensemble diversity measures
 
+## Phase 4: Advanced Models - CURRENT PHASE (Extended)
+
+### Step 4.2: Transformer & Attention Models
+- [ ] **Transformer Architecture for Time Series**
+  - [ ] Implement Temporal Fusion Transformer (TFT)
+  - [ ] Add positional encoding for time series data
+  - [ ] Multi-head attention across features and time
+  - [ ] Create encoder-decoder setup for multi-step prediction
+- [ ] **Time Series Transformers**
+  - [ ] Implement Informer model for long sequence prediction
+  - [ ] Add sparse self-attention for efficiency
+  - [ ] Cross-asset attention mechanisms
+  - [ ] Seasonal-trend decomposition attention
+
+### Step 4.3: Enhanced RNN Architectures
+- [ ] **Advanced RNN Variants**
+  - [ ] Implement GRU with attention mechanisms  
+  - [ ] Add Transformer-RNN hybrid architecture
+  - [ ] Create bidirectional RNN with skip connections
+  - [ ] Multi-scale RNN (different frequencies)
+- [ ] **Sequence-to-Sequence Models**
+  - [ ] Encoder-decoder RNN for multi-target prediction
+  - [ ] Add beam search for prediction sequences
+  - [ ] Implement teacher forcing strategies
+
+## Phase 5: Advanced Feature Engineering - CURRENT PRIORITY
+
+### Step 5.1: Dimensionality Reduction & Global Factors
+- [ ] **PCA-based Feature Engineering**
+  - [ ] Apply PCA to metal price groups (LME metals)
+  - [ ] Create FX strength factors from currency pairs
+  - [ ] Extract global growth factors from equity indices
+  - [ ] Generate commodity sector factors (energy, metals, agriculture)
+- [ ] **Factor Analysis & ICA**
+  - [ ] Independent Component Analysis for uncorrelated factors
+  - [ ] Create interpretable factors (USD strength, risk-on/off, growth)
+  - [ ] Rolling PCA for time-varying factors
+
+### Step 5.2: Automated Feature Selection
+- [ ] **Model-based Feature Selection**
+  - [ ] RFECV (Recursive Feature Elimination with Cross-Validation)
+  - [ ] Feature importance aggregation across multiple models
+  - [ ] Stability-based feature selection across time folds
+  - [ ] Boruta algorithm for feature selection
+- [ ] **Statistical Feature Selection**
+  - [ ] Mutual information for non-linear relationships
+  - [ ] LASSO regularization for automatic selection
+  - [ ] Forward/backward stepwise selection
+
+### Step 5.3: Interaction & Lead/Lag Features
+- [ ] **Cross-Market Interactions**
+  - [ ] Gold/Silver ratio, Oil/Gas spreads
+  - [ ] Currency-adjusted metal prices (LME/FX interactions)
+  - [ ] Equity sector rotations vs commodity performance
+  - [ ] VIX interactions with commodity volatility
+- [ ] **Lead/Lag Relationships**
+  - [ ] Oil leading gasoline prices (t-1 to t relationships)
+  - [ ] USD strength leading EM commodity performance
+  - [ ] Equity market leading commodity sentiment
+  - [ ] Create cross-correlation analysis for optimal lags
+
 ## Phase 6: Validation & Submission (Week 6)
 
 ### Step 6.1: Comprehensive Validation
@@ -162,45 +223,31 @@
 - [ ] Implement multiple model submission strategy
 - [ ] Add final quality checks
 
-## Daily Milestones
+## CURRENT FOCUS AREAS
 
-### Week 1 (Foundation)
-- **Day 1-2**: Project setup and environment configuration
-- **Day 3-4**: Data loading pipeline and comprehensive EDA
-- **Day 5-7**: Basic preprocessing and feature engineering foundation
+### Immediate Priority: Advanced Feature Engineering
+- **PCA & Factor Analysis**: Extract global factors from commodity groups
+- **Automated Feature Selection**: RFECV, Boruta, mutual information
+- **Interaction Features**: Cross-market ratios, lead/lag relationships
+- **Goal**: Reduce noise, improve generalization
 
-### Week 2 (Feature Engineering)
-- **Day 8-9**: Technical indicators implementation
-- **Day 10-11**: Cross-market features and correlations
-- **Day 12-14**: Time series features and lag engineering
+### Secondary Priority: Transformer Models  
+- **Temporal Fusion Transformer**: State-of-the-art for time series
+- **Cross-attention**: Learn relationships across different assets
+- **Goal**: Capture complex temporal patterns better than RNNs
 
-### Week 3 (Baseline Models)
-- **Day 15-16**: Simple baselines and linear models
-- **Day 17-18**: Tree-based models (XGBoost, LightGBM)
-- **Day 19-21**: Validation framework and performance tracking
+### COMPLETED PHASES
+- ✅ **Phases 1-3**: Foundation, feature engineering, baseline models
+- ✅ **Phase 4 (Partial)**: Basic neural networks and hybrid models
+- ✅ **Current baseline**: ranking_optimized_submission.py achieving Sharpe score of 1.7
 
-### Week 4 (Advanced Models)
-- **Day 22-23**: LSTM and neural network implementation
-- **Day 24-25**: Hybrid models and ensemble methods
-- **Day 26-28**: Target-specific modeling approaches
-
-### Week 5 (Optimization)
-- **Day 29-30**: Hyperparameter optimization
-- **Day 31-32**: Feature selection and engineering refinement
-- **Day 33-35**: Advanced ensemble methods
-
-### Week 6 (Final Validation)
-- **Day 36-37**: Comprehensive validation and backtesting
-- **Day 38-39**: Model interpretation and analysis
-- **Day 40-42**: Submission preparation and final checks
-
-## Key Performance Targets
-- [ ] **Week 1**: Establish baseline RMSE < 0.02
-- [ ] **Week 2**: Feature engineering improves RMSE by 10%
-- [ ] **Week 3**: Tree models achieve RMSE < 0.015
-- [ ] **Week 4**: Deep learning models competitive with tree models
-- [ ] **Week 5**: Ensemble methods achieve RMSE < 0.012
-- [ ] **Week 6**: Final model ready with stability validation
+## Current Status & Key Performance Targets
+- [x] **COMPLETED**: Basic project structure and data pipeline
+- [x] **COMPLETED**: Baseline models (RMSE validation framework)
+- [x] **COMPLETED**: Tree-based models with validation
+- [x] **COMPLETED**: Neural networks and hybrid models
+- [x] **CURRENT BASELINE**: Ranking-optimized submission with Sharpe score of 1.7
+- [ ] **CURRENT GOAL**: Improve Sharpe score from 1.7 to 2.5+ through ranking optimization
 
 ## Quality Checkpoints
 - [ ] All code follows consistent style and documentation

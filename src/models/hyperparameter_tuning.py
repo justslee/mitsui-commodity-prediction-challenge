@@ -43,11 +43,14 @@ class HyperparameterTuner:
         
         model = xgb.XGBRegressor(**params)
         
+        # Purged time series split (single split)
         n_samples = len(X)
-        n_train = int(0.8 * n_samples)
-        
-        X_train, X_val = X[:n_train], X[n_train:]
-        y_train, y_val = y[:n_train], y[n_train:]
+        test_size = max(20, n_samples // 5)
+        gap = max(1, n_samples // 50)
+        n_train = n_samples - test_size - gap
+
+        X_train, X_val = X.iloc[:n_train], X.iloc[n_train + gap: n_train + gap + test_size]
+        y_train, y_val = y.iloc[:n_train], y.iloc[n_train + gap: n_train + gap + test_size]
         
         if len(X_val) == 0:
             return float('inf')
@@ -75,10 +78,12 @@ class HyperparameterTuner:
         model = lgb.LGBMRegressor(**params)
         
         n_samples = len(X)
-        n_train = int(0.8 * n_samples)
-        
-        X_train, X_val = X[:n_train], X[n_train:]
-        y_train, y_val = y[:n_train], y[n_train:]
+        test_size = max(20, n_samples // 5)
+        gap = max(1, n_samples // 50)
+        n_train = n_samples - test_size - gap
+
+        X_train, X_val = X.iloc[:n_train], X.iloc[n_train + gap: n_train + gap + test_size]
+        y_train, y_val = y.iloc[:n_train], y.iloc[n_train + gap: n_train + gap + test_size]
         
         if len(X_val) == 0:
             return float('inf')
@@ -104,10 +109,12 @@ class HyperparameterTuner:
         model = CatBoostRegressor(**params)
         
         n_samples = len(X)
-        n_train = int(0.8 * n_samples)
-        
-        X_train, X_val = X[:n_train], X[n_train:]
-        y_train, y_val = y[:n_train], y[n_train:]
+        test_size = max(20, n_samples // 5)
+        gap = max(1, n_samples // 50)
+        n_train = n_samples - test_size - gap
+
+        X_train, X_val = X.iloc[:n_train], X.iloc[n_train + gap: n_train + gap + test_size]
+        y_train, y_val = y.iloc[:n_train], y.iloc[n_train + gap: n_train + gap + test_size]
         
         if len(X_val) == 0:
             return float('inf')

@@ -167,3 +167,7 @@ predictions/
 # Temporary files
 tmp/
 temp/
+
+# Project documentation and notes
+todo.md
+data_structure_findings.md
